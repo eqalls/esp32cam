@@ -29,6 +29,13 @@
 
 #include "esp_camera.h"
 #include <string.h> // Include for strcmp
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <HTTPClient.h>
+
+//WIFI
+#define WIFI_SSID "SSID"
+#define WIFI_PASSWORD "PASS"
 
 // Select camera model - find more camera models in camera_pins.h file here
 // https://github.com/espressif/arduino-esp32/blob/master/libraries/ESP32/examples/Camera/CameraWebServer/camera_pins.h
@@ -89,6 +96,8 @@ static bool debug_nn = false; // Set this to true to see e.g. features generated
 static bool is_initialised = false;
 uint8_t *snapshot_buf; //points to the output of the capture
 int detectCount = 0;
+const String FIREBASE_HOST = "";
+const String FIREBASE_AUTH = "";
 
 static camera_config_t camera_config = {
     .pin_pwdn = PWDN_GPIO_NUM,
@@ -135,6 +144,14 @@ void setup() {
     Serial.begin(115200);
     while (!Serial);
     Serial.println("Edge Impulse Inferencing Demo");
+
+    Serial.print("Connecting to Wi-Fi");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) {
+        Serial.print(".");
+        delay(1000);
+    }
+    Serial.println("\nWi-Fi Connected!");
 
     pinMode(TILT_SENSOR_PIN, INPUT);  // Set tilt sensor pin as input
 
@@ -192,15 +209,24 @@ void loop() {
                 ei_printf("  earbud (%f) [ x: %u, y: %u, width: %u, height: %u ]\r\n",
                           bb.value, bb.x, bb.y, bb.width, bb.height);
                 detectCount++;
+                String url = FIREBASE_HOST + "yourURLFirebase.json?auth=" + FIREBASE_AUTH;
+                HTTPClient http;
+                http.begin(url);
+                http.addHeader("Content-Type", "application/json");
+                int httpCode = http.PUT(String(detectCount));
+                http.end();
+                
+                if (httpCode == HTTP_CODE_OK) {
+                    Serial.printf("Total: %d", detectCount);
+                } else {
+                    Serial.printf("Firebase error: %s\n", http.errorToString(httpCode).c_str());
+                }
             }
             else if (strcmp(bb.label, "pokemon") == 0) {
                 ei_printf("  pokemon (%f) [ x: %u, y: %u, width: %u, height: %u ]\r\n",
                           bb.value, bb.x, bb.y, bb.width, bb.height);
             }
         }
-        
-        Serial.printf("Total: %d", detectCount);
-
         free(snapshot_buf);
         delay(3000);  // Prevent rapid retriggering
     }
