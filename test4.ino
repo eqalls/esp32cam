@@ -28,6 +28,7 @@
 #include "edge-impulse-sdk/dsp/image/image.hpp"
 
 #include "esp_camera.h"
+#include <string.h> // Include for strcmp
 
 // Select camera model - find more camera models in camera_pins.h file here
 // https://github.com/espressif/arduino-esp32/blob/master/libraries/ESP32/examples/Camera/CameraWebServer/camera_pins.h
@@ -185,9 +186,20 @@ void loop() {
         for (uint32_t i = 0; i < result.bounding_boxes_count; i++) {
             ei_impulse_result_bounding_box_t bb = result.bounding_boxes[i];
             if (bb.value == 0) continue;
-            ei_printf("  %s (%f) [ x: %u, y: %u, width: %u, height: %u ]\r\n",
-                      bb.label, bb.value, bb.x, bb.y, bb.width, bb.height);
+
+            // Check the label and print accordingly
+            if (strcmp(bb.label, "earbud") == 0) {
+                ei_printf("  earbud (%f) [ x: %u, y: %u, width: %u, height: %u ]\r\n",
+                          bb.value, bb.x, bb.y, bb.width, bb.height);
+                detectCount++;
+            }
+            else if (strcmp(bb.label, "pokemon") == 0) {
+                ei_printf("  pokemon (%f) [ x: %u, y: %u, width: %u, height: %u ]\r\n",
+                          bb.value, bb.x, bb.y, bb.width, bb.height);
+            }
         }
+        
+        Serial.printf("Total: %d", detectCount);
 
         free(snapshot_buf);
         delay(3000);  // Prevent rapid retriggering
