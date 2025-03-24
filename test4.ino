@@ -96,8 +96,8 @@ static bool debug_nn = false; // Set this to true to see e.g. features generated
 static bool is_initialised = false;
 uint8_t *snapshot_buf; //points to the output of the capture
 int detectCount = 0;
-const String FIREBASE_HOST = "";
-const String FIREBASE_AUTH = "";
+const String FIREBASE_HOST = "FIREBASE_URL";
+const String FIREBASE_AUTH = "FIREBASE_API";
 
 static camera_config_t camera_config = {
     .pin_pwdn = PWDN_GPIO_NUM,
@@ -209,7 +209,7 @@ void loop() {
                 ei_printf("  earbud (%f) [ x: %u, y: %u, width: %u, height: %u ]\r\n",
                           bb.value, bb.x, bb.y, bb.width, bb.height);
                 detectCount++;
-                String url = FIREBASE_HOST + "yourURLFirebase.json?auth=" + FIREBASE_AUTH;
+                String url = FIREBASE_HOST + "sensors/sensor1/vibrationCount.json?auth=" + FIREBASE_AUTH;
                 HTTPClient http;
                 http.begin(url);
                 http.addHeader("Content-Type", "application/json");
@@ -221,10 +221,12 @@ void loop() {
                 } else {
                     Serial.printf("Firebase error: %s\n", http.errorToString(httpCode).c_str());
                 }
+                fallDurianLog(1); 
             }
             else if (strcmp(bb.label, "pokemon") == 0) {
                 ei_printf("  pokemon (%f) [ x: %u, y: %u, width: %u, height: %u ]\r\n",
                           bb.value, bb.x, bb.y, bb.width, bb.height);
+                fallDurianLog(2);
             }
         }
         free(snapshot_buf);
@@ -273,6 +275,37 @@ bool ei_camera_init(void) {
     is_initialised = true;
     return true;
 }
+
+//fallDurianLog
+void fallDurianLog(int logType) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    
+    // Use the correct API URL
+    http.begin("http://YOUR_DOMAIN/api/vibration-log");
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    // Prepare POST data
+    String postData = "vibrationCount=" + String(detectCount) + "&deviceID=ESP32&logType=" + String(logType);
+    
+    // Send POST request
+    int httpCode = http.POST(postData);
+
+    // Print response code
+    Serial.printf("[Harvest] HTTP code: %d | Durians: %d\n", httpCode, detectCount);
+
+    if (httpCode == HTTP_CODE_OK) {
+      Serial.println("Harvest logged successfully");
+    } else {
+      Serial.printf("HTTP code: %d | Data not saved\n", httpCode);
+    }
+
+    http.end();
+  } else {
+    Serial.println("Wi-Fi disconnected - harvest not logged");
+  }
+}
+
 
 /**
  * @brief      Stop streaming of sensor data
